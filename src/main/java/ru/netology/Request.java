@@ -1,17 +1,19 @@
 package ru.netology;
 
+import java.util.List;
+
 public class Request {
 
     private final RequestLine requestLine;
-    private final String headers;
+    private final List<String> headers;
     private String body;
 
-    public Request(RequestLine requestLine, String headers) {
+    public Request(RequestLine requestLine, List<String> headers) {
         this.requestLine = requestLine;
         this.headers = headers;
     }
 
-    public Request(RequestLine requestLine, String headers, String body) {
+    public Request(RequestLine requestLine, List<String> headers, String body) {
         this.requestLine = requestLine;
         this.headers = headers;
         this.body = body;
@@ -21,12 +23,16 @@ public class Request {
         return requestLine;
     }
 
-    public String getHeaders() {
+    public List<String> getHeaders() {
         return headers;
     }
 
     public String getBody() {
         return body;
+    }
+
+    public void setBody(String body) {
+        this.body = body;
     }
 
     @Override
