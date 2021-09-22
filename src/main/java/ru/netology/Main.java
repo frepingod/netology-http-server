@@ -39,7 +39,7 @@ public class Main {
         };
 
         for (String validPath : validPaths) {
-            if (validPaths.contains(validPath)) {
+            if (!validPath.equals("/classic.html")) {
                 server.addHandler("GET", validPath, defaultHandler);
             }
         }
@@ -71,5 +71,3 @@ public class Main {
         server.listen(port);
     }
 }
-
-

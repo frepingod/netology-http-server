@@ -29,7 +29,12 @@ public class Server {
     }
 
     public void addHandler(String method, String path, Handler handler) {
-        handlers.put(method, Map.of(path, handler));
+        Map<String, Handler> map = new ConcurrentHashMap<>();
+        if (handlers.containsKey(method)) {
+            map = handlers.get(method);
+        }
+        map.put(path, handler);
+        handlers.put(method, map);
     }
 
     private class ServerHandler implements Runnable {
