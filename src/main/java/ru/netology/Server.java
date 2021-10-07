@@ -1,8 +1,14 @@
 package ru.netology;
 
+import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URLEncodedUtils;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -118,45 +124,69 @@ public class Server {
                     }
                 }
 
-                // получили handler
-                Handler handler = handlers.get(request.getRequestLine().getMethod())
-                        .get(request.getRequestLine().getPath());
-                handler.handle(request, out);
-            } catch (IOException e) {
+                // получаем queryParams и присваиваем их в request
+                final URI uri = new URI(requestLine.getPath());
+                List<NameValuePair> queryParams = URLEncodedUtils.parse(uri, StandardCharsets.UTF_8);
+                request.setQueryParams(queryParams);
+
+                // получаем handler и запускаем его, 404 - если handler не найден
+                runHandler(request, out);
+            } catch (IOException | URISyntaxException e) {
                 e.printStackTrace();
             }
         }
-    }
 
-    private static Optional<String> extractHeader(List<String> headers, String header) {
-        return headers.stream()
-                .filter(o -> o.startsWith(header))
-                .map(o -> o.substring(o.indexOf(" ")))
-                .map(String::trim)
-                .findFirst();
-    }
+        private void runHandler(Request request, BufferedOutputStream out) throws IOException {
+            Handler handler = handlers.get(request.getRequestLine().getMethod())
+                    .get(request.getRequestLine().getPath());
 
-    private static void badRequest(BufferedOutputStream out) throws IOException {
-        out.write((
-                "HTTP/1.1 400 Bad Request\r\n" +
-                        "Content-Length: 0\r\n" +
-                        "Connection: close\r\n" +
-                        "\r\n"
-        ).getBytes());
-        out.flush();
-    }
-
-    // from google guava with modifications
-    private static int indexOf(byte[] array, byte[] target, int start, int max) {
-        outer:
-        for (int i = start; i < max - target.length + 1; i++) {
-            for (int j = 0; j < target.length; j++) {
-                if (array[i + j] != target[j]) {
-                    continue outer;
-                }
+            if (handler != null) {
+                handler.handle(request, out);
+            } else {
+                notFoundRequest(out);
             }
-            return i;
         }
-        return -1;
+
+        private Optional<String> extractHeader(List<String> headers, String header) {
+            return headers.stream()
+                    .filter(o -> o.startsWith(header))
+                    .map(o -> o.substring(o.indexOf(" ")))
+                    .map(String::trim)
+                    .findFirst();
+        }
+
+        private void badRequest(BufferedOutputStream out) throws IOException {
+            out.write((
+                    "HTTP/1.1 400 Bad Request\r\n" +
+                            "Content-Length: 0\r\n" +
+                            "Connection: close\r\n" +
+                            "\r\n"
+            ).getBytes());
+            out.flush();
+        }
+
+        public void notFoundRequest(BufferedOutputStream out) throws IOException {
+            out.write((
+                    "HTTP/1.1 404 Not Found\r\n" +
+                            "Content-Length: 0\r\n" +
+                            "Connection: close\r\n" +
+                            "\r\n"
+            ).getBytes());
+            out.flush();
+        }
+
+        // from google guava with modifications
+        private int indexOf(byte[] array, byte[] target, int start, int max) {
+            outer:
+            for (int i = start; i < max - target.length + 1; i++) {
+                for (int j = 0; j < target.length; j++) {
+                    if (array[i + j] != target[j]) {
+                        continue outer;
+                    }
+                }
+                return i;
+            }
+            return -1;
+        }
     }
 }
