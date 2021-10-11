@@ -39,9 +39,9 @@ public class Request {
         this.body = body;
     }
 
-    public List<String> getQueryParam(String param) {
+    public List<String> getQueryParam(String name) {
         return queryParams.stream()
-                .filter(o -> o.getName().startsWith(param))
+                .filter(o -> o.getName().startsWith(name))
                 .map(NameValuePair::getValue)
                 .collect(Collectors.toList());
     }
@@ -50,8 +50,8 @@ public class Request {
         return queryParams;
     }
 
-    public void setQueryParams(List<NameValuePair> params) {
-        this.queryParams = params;
+    public void setQueryParams(List<NameValuePair> queryParams) {
+        this.queryParams = queryParams;
     }
 
     @Override
