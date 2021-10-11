@@ -81,7 +81,7 @@ public class ServerPool {
                 }
 
                 Request request = new Request(requestLine, headers);
-                request.setBody(getBody(request, in));
+                setBodyAndPostParams(request, in);
                 request.setQueryParams(getQueryParams(requestLine.getPath()));
 
                 runHandler(request, out);
@@ -133,7 +133,7 @@ public class ServerPool {
             return Arrays.asList(new String(headersBytes).split("\r\n"));
         }
 
-        private String getBody(Request request, BufferedInputStream in) throws IOException {
+        private void setBodyAndPostParams(Request request, BufferedInputStream in) throws IOException {
             // для GET тело МОЖЕТ быть, но общепринято его игнорировать
             if (!request.getRequestLine().getMethod().equals("GET")) {
                 in.skip(headersDelimiter.length);
@@ -142,10 +142,20 @@ public class ServerPool {
                 if (contentLength.isPresent()) {
                     final int length = Integer.parseInt(contentLength.get());
                     final byte[] bodyBytes = in.readNBytes(length);
-                    return new String(bodyBytes);
+
+                    final String body = new String(bodyBytes);
+                    request.setBody(body);
+                }
+
+                // вычитываем Content-Type, проверяем, есть ли в body параметры
+                final Optional<String> contentType = extractHeader(request.getHeaders(), "Content-Type");
+                if (contentType.isPresent()) {
+                    final String type = contentType.get();
+                    if (type.equals("application/x-www-form-urlencoded")) {
+                        request.setPostParams(URLEncodedUtils.parse(request.getBody(), StandardCharsets.UTF_8));
+                    }
                 }
             }
-            return null;
         }
 
         private List<NameValuePair> getQueryParams(String path) throws URISyntaxException {

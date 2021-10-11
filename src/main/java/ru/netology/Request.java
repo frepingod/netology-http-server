@@ -11,6 +11,7 @@ public class Request {
     private final List<String> headers;
     private String body;
     private List<NameValuePair> queryParams;
+    private List<NameValuePair> postParams;
 
     public Request(RequestLine requestLine, List<String> headers) {
         this.requestLine = requestLine;
@@ -40,10 +41,7 @@ public class Request {
     }
 
     public List<String> getQueryParam(String name) {
-        return queryParams.stream()
-                .filter(o -> o.getName().startsWith(name))
-                .map(NameValuePair::getValue)
-                .collect(Collectors.toList());
+        return getParam(queryParams, name);
     }
 
     public List<NameValuePair> getQueryParams() {
@@ -52,6 +50,25 @@ public class Request {
 
     public void setQueryParams(List<NameValuePair> queryParams) {
         this.queryParams = queryParams;
+    }
+
+    public List<String> getPostParam(String name) {
+        return getParam(postParams, name);
+    }
+
+    public List<NameValuePair> getPostParams() {
+        return postParams;
+    }
+
+    public void setPostParams(List<NameValuePair> postParams) {
+        this.postParams = postParams;
+    }
+
+    private List<String> getParam(List<NameValuePair> params, String name) {
+        return params.stream()
+                .filter(o -> o.getName().startsWith(name))
+                .map(NameValuePair::getValue)
+                .collect(Collectors.toList());
     }
 
     @Override
