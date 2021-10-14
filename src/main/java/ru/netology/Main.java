@@ -16,7 +16,7 @@ public class Main {
 
         int port = 9999;
 
-        Server server = new Server();
+        ServerPool serverPool = new ServerPool();
 
         Handler defaultHandler = (request, responseStream) -> {
             try {
@@ -40,11 +40,11 @@ public class Main {
 
         for (String validPath : validPaths) {
             if (!validPath.equals("/classic.html")) {
-                server.addHandler("GET", validPath, defaultHandler);
+                serverPool.addHandler("GET", validPath, defaultHandler);
             }
         }
 
-        server.addHandler("GET", "/classic.html", (request, responseStream) -> {
+        serverPool.addHandler("GET", "/classic.html", (request, responseStream) -> {
             try {
                 final Path filePath = Path.of(".", "public", "/classic.html");
                 final String mimeType = Files.probeContentType(filePath);
@@ -68,6 +68,6 @@ public class Main {
             }
         });
 
-        server.listen(port);
+        serverPool.listen(port);
     }
 }
