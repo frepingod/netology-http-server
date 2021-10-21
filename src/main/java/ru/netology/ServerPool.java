@@ -6,7 +6,6 @@ import org.apache.http.client.utils.URLEncodedUtils;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -41,6 +40,26 @@ public class ServerPool {
         }
         map.put(path, handler);
         handlers.put(method, map);
+    }
+
+    public void badRequest(BufferedOutputStream out) throws IOException {
+        out.write((
+                "HTTP/1.1 400 Bad Request\r\n" +
+                        "Content-Length: 0\r\n" +
+                        "Connection: close\r\n" +
+                        "\r\n"
+        ).getBytes());
+        out.flush();
+    }
+
+    public void notFound(BufferedOutputStream out) throws IOException {
+        out.write((
+                "HTTP/1.1 404 Not Found\r\n" +
+                        "Content-Length: 0\r\n" +
+                        "Connection: close\r\n" +
+                        "\r\n"
+        ).getBytes());
+        out.flush();
     }
 
     private class SocketHandler implements Runnable {
@@ -82,7 +101,7 @@ public class ServerPool {
 
                 Request request = new Request(requestLine, headers);
                 request.setBody(getBody(request, in));
-                request.setQueryParams(getQueryParams(requestLine.getPath()));
+                request.setPostParams(getPostParams(request));
 
                 runHandler(request, out);
             } catch (IOException | URISyntaxException e) {
@@ -96,38 +115,31 @@ public class ServerPool {
             if (requestLineEnd == -1) {
                 return null;
             }
-
             // читаем request line
             final String[] parts = new String(Arrays.copyOf(buffer, requestLineEnd)).split(" ");
             if (parts.length != 3) {
                 return null;
             }
-
             // проверяем, валидный ли путь
             if (!parts[1].startsWith("/")) {
                 return null;
             }
-
             // получили request line
             return new RequestLine(parts[0], parts[1], parts[2]);
         }
 
         private List<String> getHeaders(byte[] buffer, int read, BufferedInputStream in) throws IOException {
             final int requestLineEnd = indexOf(buffer, requestLineDelimiter, 0, read);
-
             // ищем заголовки
             final int headersStart = requestLineEnd + requestLineDelimiter.length;
             final int headersEnd = indexOf(buffer, headersDelimiter, headersStart, read);
             if (headersEnd == -1) {
                 return null;
             }
-
             // отматываем на начало буфера
             in.reset();
-
             // пропускаем requestLine
             in.skip(headersStart);
-
             // получили заголовки
             final byte[] headersBytes = in.readNBytes(headersEnd - headersStart);
             return Arrays.asList(new String(headersBytes).split("\r\n"));
@@ -137,8 +149,7 @@ public class ServerPool {
             // для GET тело МОЖЕТ быть, но общепринято его игнорировать
             if (!request.getRequestLine().getMethod().equals("GET")) {
                 in.skip(headersDelimiter.length);
-                // вычитываем Content-Length, чтобы прочитать body
-                final Optional<String> contentLength = extractHeader(request.getHeaders(), "Content-Length");
+                final Optional<String> contentLength = request.getHeader("Content-Length");
                 if (contentLength.isPresent()) {
                     final int length = Integer.parseInt(contentLength.get());
                     final byte[] bodyBytes = in.readNBytes(length);
@@ -148,9 +159,18 @@ public class ServerPool {
             return null;
         }
 
-        private List<NameValuePair> getQueryParams(String path) throws URISyntaxException {
-            final URI uri = new URI(path);
-            return URLEncodedUtils.parse(uri, StandardCharsets.UTF_8);
+        private List<NameValuePair> getPostParams(Request request) {
+            // для GET тело МОЖЕТ быть, но общепринято его игнорировать
+            if (!request.getRequestLine().getMethod().equals("GET")) {
+                final Optional<String> contentType = request.getHeader("Content-Type");
+                if (contentType.isPresent()) {
+                    final String type = contentType.get();
+                    if (type.equals("application/x-www-form-urlencoded")) {
+                        return URLEncodedUtils.parse(request.getBody(), StandardCharsets.UTF_8);
+                    }
+                }
+            }
+            return null;
         }
 
         private void runHandler(Request request, BufferedOutputStream out) throws IOException {
@@ -162,34 +182,6 @@ public class ServerPool {
             } else {
                 notFound(out);
             }
-        }
-
-        private Optional<String> extractHeader(List<String> headers, String header) {
-            return headers.stream()
-                    .filter(o -> o.startsWith(header))
-                    .map(o -> o.substring(o.indexOf(" ")))
-                    .map(String::trim)
-                    .findFirst();
-        }
-
-        private void badRequest(BufferedOutputStream out) throws IOException {
-            out.write((
-                    "HTTP/1.1 400 Bad Request\r\n" +
-                            "Content-Length: 0\r\n" +
-                            "Connection: close\r\n" +
-                            "\r\n"
-            ).getBytes());
-            out.flush();
-        }
-
-        public void notFound(BufferedOutputStream out) throws IOException {
-            out.write((
-                    "HTTP/1.1 404 Not Found\r\n" +
-                            "Content-Length: 0\r\n" +
-                            "Connection: close\r\n" +
-                            "\r\n"
-            ).getBytes());
-            out.flush();
         }
 
         // from google guava with modifications
